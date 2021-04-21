@@ -212,11 +212,11 @@ class vishnu_code():
         self._client = MongoClient(host="localhost", port=27017)
         self._db="dap_project"
         self._mydb = self._client[self._db]
-        # df=self.scrape_data()    
-        # df=df.to_dict(orient='records')
-        # print("*"*20)
-        # self.insert_into_mongo(df)
-        # print("*"*20)
+        df=self.scrape_data()    
+        df=df.to_dict(orient='records')
+        print("*"*20)
+        self.insert_into_mongo(df)
+        print("*"*20)
         self._mongo_file=self.get_data_mongo()
         print("*"*30)
         print("retrieved data from Mongo")
@@ -252,7 +252,7 @@ class vishnu_code():
                                         
                                     
                                     """)
-        #self.crud(self._con,drop_table)
+        self.crud(self._con,drop_table)
         sql_create_covid_table = ("""   
                                         CREATE TABLE covidData (
                                         active_cases DECIMAL (38,4) NOT NULL ,
@@ -266,7 +266,7 @@ class vishnu_code():
                                     );
                                     """)#PRIMARY KEY (country,date)
         
-        #self.crud(self._con,sql_create_covid_table)
+        self.crud(self._con,sql_create_covid_table)
         
         sql_insert_values = ''' INSERT INTO covidData(active_cases,death_rate,deaths,recovery_rate,daily_cases,date,country)
                               VALUES({},{},{},{},{},'{}','{}'); '''
@@ -275,8 +275,8 @@ class vishnu_code():
         self._mongo_df=self._mongo_df[["active_cases","death_rate","deaths","recovery_rate","daily_cases","date","country"]]                      
         d=self._mongo_df.to_dict(orient="records")
         print("*"*20 +"adding data into MySql DB" +"*"*20)
-        #for data in d:
-         #   self.insert_into_table(self._con,sql_insert_values,tuple(data.values()))
+        for data in d:
+            self.insert_into_table(self._con,sql_insert_values,tuple(data.values()))
 
         
         

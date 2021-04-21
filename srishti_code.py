@@ -123,7 +123,7 @@ class srishti_code():
                                         
                                     
                                     """)
-        # self.crud(self._con,drop_table)
+        self.crud(self._con,drop_table)
         sql_create_covid_table = ("""   
                                         CREATE TABLE vaccineData (
                                         total_vaccinations DECIMAL (38,4) NOT NULL ,
@@ -140,7 +140,7 @@ class srishti_code():
                                     );
                                     """)#PRIMARY KEY (country,date)
         
-        # self.crud(self._con,sql_create_covid_table)
+        self.crud(self._con,sql_create_covid_table)
         
         sql_insert_values = ''' INSERT INTO vaccineData(total_vaccinations,people_vaccinated,people_fully_vaccinated,new_vaccinations,total_vaccinations_per_hundred,people_vaccinated_per_hundred,people_fully_vaccinated_per_hundred,population,date,country)
                               VALUES({},{},{},{},{},{},{},{},'{}','{}'); '''
@@ -148,11 +148,10 @@ class srishti_code():
         self._mongo_df = self._mongo_df.replace([np.inf, -np.inf], np.nan)
         self._mongo_df = self._mongo_df.fillna(0)
         print(self._mongo_df.isnull().sum())
-        # import sys
-        # sys.exit()
-        # d=self._mongo_df.to_dict(orient="records")
-        # for data in d:
-        #     self.insert_into_table(self._con,sql_insert_values,tuple(data.values()))
+
+        d=self._mongo_df.to_dict(orient="records")
+        for data in d:
+            self.insert_into_table(self._con,sql_insert_values,tuple(data.values()))
         
         # correlation of plot
         # plt.subplots(figsize=(8, 8))
