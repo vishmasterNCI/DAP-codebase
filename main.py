@@ -40,7 +40,6 @@ if __name__=="__main__":
     #s1.main_2()
     #s1._df_list = [n for n in df]
     #s1._mongo_df = pd.DataFrame().from_dict(s1._df_list)
-    
     print("******************Executing Vishnus Code******************")
     p1=vishnu_code.vishnu_code(client,db) 
     p1.main_one()
