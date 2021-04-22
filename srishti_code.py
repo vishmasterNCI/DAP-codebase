@@ -53,7 +53,7 @@ class srishti_code():
 
     def scrape_data(self):
         self._df_list=[]
-        self._df_list.append(df)
+        # self._df_list.append(df)
         return pd.concat(self._df_list)
     
     def date_cleaner(self,date_string):
@@ -83,39 +83,41 @@ class srishti_code():
         self._mydb = self._client[self._db]
         self._mongo_file = self.get_data_mongo()
         print("-" * 20)
-        print("retrieved data from MongoDb")
+        print("Retrieved data from MongoDb")
         print("-" * 20)
         self._df_list = [n for n in self._mongo_file]
         self._mongo_df = pd.DataFrame().from_dict(self._df_list)
-        print("Date Cleaning....")
+        ## DATA PRE PROCESSING AND CLEANING PART ##
+        print("Date Cleaning Started....")
         self._mongo_df = self._mongo_df[self._mongo_df.date.isnull() == False]
         # self._mongo_df["date"] = self._mongo_df["date"].apply(lambda x: self.date_cleaner(x))
-        print("Date Cleaning done")
+        print("Date Cleaning done!")
+        # Renaming location with country for proper name
         self._mongo_df.rename(columns={'location': 'country'}, inplace=True)
-        print("Replaced location column to country")
+        print("Replaced 'location' column to 'country'")
+        # Replacing Null and NAN values with 0
         self._mongo_df = self._mongo_df.replace([np.inf, -np.inf], np.nan)
         self._mongo_df = self._mongo_df.fillna(0)
         print("Null/NaN values replaced from 0")
         # let's drop new_vaccinations_smoothed and new_vaccinations_smoothed_per_million
         self._mongo_df.drop(['new_vaccinations_smoothed', 'new_vaccinations_smoothed_per_million'], axis=1, inplace=True)
-        print("Droped new_vaccinations_smoothed and new_vaccinations_smoothed_per_million")
+        print("Dropped 'new_vaccinations_smoothed' and 'new_vaccinations_smoothed_per_million'")
+        # Removing World data from the country column
         self._mongo_df = self._mongo_df[self._mongo_df.country != "World"]
-        # print(self._mongo_df,"x")
         print("Removed World data from country column as it is irrelavant")
         # Replacing country "Cote d'Ivoire" with "Ivory Coast, United States with US and United Kingdom with UK"
         self._mongo_df.country = self._mongo_df.country.replace().replace({"Cote d'Ivoire": "Ivory Coast"})
         self._mongo_df.country = self._mongo_df.country.replace().replace({"United States": "US"})
         self._mongo_df.country = self._mongo_df.country.replace().replace({"United Kingdom": "UK"})
-        # Making all countries lower case and replacing '' with -
+        # Making all countries lower case and replacing '' with - to match with other datasets
         self._mongo_df.country=self._mongo_df.country.str.lower()
         self._mongo_df.country=self._mongo_df.country.str.replace(' ','-')
         print("Replacing country name with proper format")
-        #print(self._mongo_df,"y")
-        #print(self._mongo_df.country.unique().tolist())
+        
 
         
     def main_2(self):
-    
+        # MySql PART #
         self._con = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER='+self._sqlserver+';DATABASE='+self._sqldb+';UID='+self._username+';PWD='+self._password) 
         
         drop_table = ("""   
@@ -154,11 +156,11 @@ class srishti_code():
             self.insert_into_table(self._con,sql_insert_values,tuple(data.values()))
         
         # correlation of plot
-        # plt.subplots(figsize=(8, 8))
-        # sns.heatmap(self._mongo_df.corr() , annot=True, square=True )
-        # plt.show()
+        plt.subplots(figsize=(8, 8))
+        sns.heatmap(self._mongo_df.corr() , annot=True, square=True )
+        plt.show()
         
-        ## VISUALISATION PART
+        ## VISUALISATION PART ##
 
     # Countries with maximum vaccination Average rate
         query = """ select country ,avg(people_vaccinated) as total_vaccinations
@@ -210,7 +212,7 @@ class srishti_code():
         h.legend()
         plt.show()
         
-    # people Vaccinated per country
+    # Max people Vaccinated for top 50 countries 
         query = """ select country ,max(people_vaccinated) as people__vaccinated
                     from vaccineData 
                     group by country
@@ -220,13 +222,13 @@ class srishti_code():
         
         self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country', 'people__vaccinated'])
         
-        h=sns.barplot(x='country',y='people__vaccinated',data=self._vdf[0:10])
-        h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:10]))
-        plt.title("People Vaccinated per country")
+        h=sns.barplot(x='country',y='people__vaccinated',data=self._vdf[0:50])
+        h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:50]))
+        plt.title("Max people Vaccinated for top 50 countries")
         h.legend()
         plt.show()
     
-    # people Vaccinated per hundred per country
+    # People Vaccinated per hundred for top 50 countries
         query = """ select country ,max(people_vaccinated_per_hundred) as people_vaccinated__per_hundred
                     from vaccineData 
                     group by country
@@ -236,9 +238,9 @@ class srishti_code():
         
         self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country', 'people_vaccinated__per_hundred'])
         
-        h=sns.barplot(x='country',y='people_vaccinated__per_hundred',data=self._vdf[0:10])
-        h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:10]))
-        plt.title("People Vaccinated per hundred per country")
+        h=sns.barplot(x='country',y='people_vaccinated__per_hundred',data=self._vdf[0:50])
+        h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:50]))
+        plt.title("People Vaccinated per hundred for top 50 countries")
         h.legend()
         plt.show()
         
@@ -252,11 +254,111 @@ class srishti_code():
         
         self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country', 'people_fully__vaccinated_per_hundred'])
         
-        h=sns.barplot(x='country',y='people_fully__vaccinated_per_hundred',data=self._vdf[0:10])
-        h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:10]))
+        h=sns.barplot(x='country',y='people_fully__vaccinated_per_hundred',data=self._vdf[0:50])
+        h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:50]))
         plt.title("People fully vaccinated per hundred")
         h.legend()
         plt.show()
+        
+    # Analysis on data for India
+    # Select data entries for India 
+        query = """ select country, date, sum(total_vaccinations) as total_Vaccinations
+                    from vaccineData v
+                    where v.country = 'India'
+                    group by country, date
+                    order by total_Vaccinations;"""
+                    
+        self._q_data=self.get_data_mysql(self._con,query)
+        
+        self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'total_Vaccinations'])
+        
+        h=sns.lineplot(x='date',y='total_Vaccinations',hue='country',data=self._vdf)
+        h.set_xticklabels(rotation=90,labels = list(self._vdf.date))
+        plt.title("Total vaccinations date-wise trend in India")
+        h.legend()
+        plt.show()
+        
+        query = """ select country, date, sum(people_fully_vaccinated) as people_fully_vaccinated
+                    from vaccineData v
+                    where v.country = 'India'
+                    group by country, date
+                    order by people_fully_vaccinated;"""
+                    
+        self._q_data=self.get_data_mysql(self._con,query)
+        
+        self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'people_fully_vaccinated'])
+        
+        h=sns.lineplot(x='date',y='people_fully_vaccinated',hue='country',data=self._vdf)
+        h.set_xticklabels(rotation=90,labels = list(self._vdf.date))
+        plt.title("People fully vaccinated - date wise trend in India")
+        h.legend()
+        plt.show()
+        
+        query = """select country, date, sum(people_fully_vaccinated) as people_fully_vaccinated, sum(total_vaccinations) as total_vaccinations, sum(people_vaccinated) as people_vaccinated
+                    from vaccineData v
+                    where v.country = 'India'
+                    group by country, date
+                    order by people_fully_vaccinated,total_Vaccinations,people_vaccinated ; """
+        
+        self._q_data=self.get_data_mysql(self._con,query)
+        
+        self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'people_fully_vaccinated', 'total_vaccinations','people_vaccinated'])
+        
+        X = self._vdf["date"]
+        Y1 =self._vdf["people_fully_vaccinated"]
+        Y2 =self._vdf["total_vaccinations"]
+        Y3 =self._vdf["people_vaccinated"]
+
+        plt.figure(figsize=(8,5))
+        plt.plot(X,Y1,linewidth=4,label="people fully vaccinated")
+        plt.plot(X,Y2,linewidth=3,label="total vaccinations")
+        plt.plot(X,Y3,linewidth=3,label="people vaccinated")
+        plt.xticks(rotation=90)
+        plt.legend()
+        plt.show()   
+        
+        # Total Vaccination % of Population by Country
+        query = """ select country, sum(total_vaccinations) as total_vaccinations
+                    from vaccineData
+                    group by country
+                    order by total_vaccinations ; """
+                    
+        self._q_data=self.get_data_mysql(self._con,query)
+        
+        self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','total_vaccinations'])
+        
+        trace = go.Choropleth(
+            locations = self._vdf['country'],
+            locationmode='country names',
+            z = self._vdf['total_vaccinations'],
+            text = self._vdf['country'],
+            autocolorscale =False,
+            reversescale = True,
+            colorscale = 'viridis',
+            marker = dict(
+                line = dict(
+                    color = 'rgb(0,0,0)',
+                    width = 0.5)
+            ),
+            colorbar = dict(
+                title = 'Total vaccinations',
+                tickprefix = '')
+        )
+
+        data = [trace]
+        layout = go.Layout(
+            title = 'Total vaccinations per country',
+            geo = dict(
+            showframe = True,
+            showlakes = False,
+            showcoastlines = True,
+            projection = dict(
+                type = 'natural earth'
+            )
+        )
+    )
+        fig = dict( data=data, layout=layout )
+        iplot(fig)
         
     
 
