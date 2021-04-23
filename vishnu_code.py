@@ -32,6 +32,7 @@ from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_squared_error,mean_absolute_error,r2_score
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
+from sklearn.inspection import permutation_importance
 import numpy as np
 
 
@@ -412,6 +413,7 @@ class vishnu_code():
         
 
     def main_three(self):
+        self._con = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER='+self._sqlserver+';DATABASE='+self._sqldb+';UID='+self._username+';PWD='+self._password) 
         query = """ select * from covidData c,vaccineData v,hospitalData h
                     where c.date=v.date
                     and v.date=h.date
@@ -455,21 +457,27 @@ class vishnu_code():
         
         #inter dataset visualization
         #correlation
+        cor_df=self._mldf.select_dtypes(exclude=['object'])
+        sns.heatmap(cor_df.corr())
+        #strong negative correlation between testing rate and positivity rate,which means if the testing rate increases positivity rate tends to decrease
+        #strong positive correlation between recovery rate and daily icu and hospital admissions
+        #strong negative correlation between people vaccinated per hundred and deaths,which means with more vaccintions the death rate tends to decrease
+        
         #feature selection
+        #remove highly correlated variables: total_vaccinations,people_vaccinated,people_fully_vaccinated,people_vaccinated_per_hundred,people_fully_vaccinated_per_hundred,death_rate
         
         
         
-        
-        X=self._mldf[self._mldf.columns.difference(["deaths","death_rate","daily_cases"])]
+        X=self._mldf[self._mldf.columns.difference(['level','country','region','region_name','people_vaccinated','total_vaccinations,people_vaccinated','people_fully_vaccinated','people_vaccinated_per_hundred','total_vaccinations','total_vaccinations_per_hundred','deaths','death_rate','new_cases'])]
         y=self._mldf[["deaths"]]
         
         
         
-        le = preprocessing.LabelEncoder()
-        X['country']=le.fit_transform(X['country'])
-        X['level']=le.fit_transform(X['level'])
-        X['region']=le.fit_transform(X['region'])
-        X['region_name']=le.fit_transform(X['region_name'])
+        #le = preprocessing.LabelEncoder()
+        #X['country']=le.fit_transform(X['country'])
+        #X['level']=le.fit_transform(X['level'])
+        #X['region']=le.fit_transform(X['region'])
+        #X['region_name']=le.fit_transform(X['region_name'])
         
         
         
@@ -489,10 +497,31 @@ class vishnu_code():
         #rmse = root_mean_squared_error(y_test, reg.predict(X_test))
         mae = mean_absolute_error(y_test, reg.predict(X_test))
         r2 = r2_score(y_test, reg.predict(X_test))
+        adjr2 = r2_score(y_test, reg.predict(X_test),multioutput='variance_weighted')
         
         print("The mean squared error (MSE) on test set: {:.4f}".format(mse))
         print("The mean absolute error (mae) on test set: {:.4f}".format(mae))
         print("The r2 on test set: {:.4f}".format(r2))
+        print("The adjr2 on test set: {:.4f}".format(adjr2))
+        
+        feature_importance = reg.feature_importances_
+        sorted_idx = np.argsort(feature_importance)
+        pos = np.arange(sorted_idx.shape[0]) + .5
+        fig = plt.figure(figsize=(12, 6))
+        plt.subplot(1, 2, 1)
+        plt.barh(pos, feature_importance[sorted_idx], align='center')
+        plt.yticks(pos, np.array(X_test.columns)[sorted_idx])
+        plt.title('Feature Importance (MDI)')
+
+        result = permutation_importance(reg, X_test, y_test, n_repeats=10,
+                                        random_state=42, n_jobs=2)
+        sorted_idx = result.importances_mean.argsort()
+        plt.subplot(1, 2, 2)
+        plt.boxplot(result.importances[sorted_idx].T,
+                    vert=False, labels=np.array(X_test.columns)[sorted_idx])
+        plt.title("Permutation Importance (test set)")
+        fig.tight_layout()
+        plt.show()
         
 
    
