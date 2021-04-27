@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import pyodbc 
 import numpy as np
 from datetime import datetime
+import plotly.graph_objs as go
+from plotly.offline import download_plotlyjs,init_notebook_mode,plot,iplot
 
 class deeksha_code():
     def __init__(self,client,db):
@@ -122,7 +124,7 @@ class deeksha_code():
                                     
                                     """)
         self.crud(self._con,drop_table)
-        sql_create_currency_table = ("""   
+        sql_create_hospital_table = ("""   
                                         CREATE TABLE hospitalData (
                                         Daily_ICU_occupancy DECIMAL (38,4) NOT NULL ,
                                         Daily_hospital_occupancy DECIMAL (38,4) NOT NULL ,
@@ -151,7 +153,7 @@ class deeksha_code():
         self._mongo_df.drop(["_id","year_week","country_code"],axis=1,inplace=True)                          
         self._mongo_df.date=self._mongo_df.date.apply(lambda x:datetime.strptime(x, '%d/%m/%y'))
         #self._mongo_df.date=self._mongo_df.date.apply(lambda x:datetime.strptime(x, '%d/%m/%Y'))
-        self.crud(self._con,sql_create_currency_table)
+        self.crud(self._con,sql_create_hospital_table)
                
         sql_insert_values = ''' INSERT INTO hospitalData(
                                 Daily_ICU_occupancy,Daily_hospital_occupancy,country,
@@ -181,11 +183,47 @@ class deeksha_code():
         self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country', 'Total_Hospitalisation'])
         
         
-        h=sns.barplot(x='country',y='Total_Hospitalisation',data=self._vdf[0:5])
-        h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:5]))
-        plt.title("Top 5 countries with Highest Hospitalisation average rate")
-        h.legend()
-        plt.show()
+        # h=sns.barplot(x='country',y='Total_Hospitalisation',data=self._vdf[0:5])
+        # h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:5]))
+        # plt.title("Top 5 countries with Highest Hospitalisation average rate")
+        # h.legend()
+        # plt.show()
+        # plt.savefig('Top 5 countries with Highest Hospitalisation average rate.png')
+        
+        
+        trace = go.Choropleth(
+            locations = self._vdf['country'],
+            locationmode='country names',
+            z = self._vdf['Total_Hospitalisation'],
+            text = self._vdf['country'],
+            autocolorscale =False,
+            reversescale = True,
+            colorscale = 'viridis',
+            marker = dict(
+                line = dict(
+                    color = 'rgb(0,0,0)',
+                    width = 0.5)
+            ),
+            colorbar = dict(
+                title = 'Total_Hospitalisation',
+                tickprefix = '')
+        )
+
+        data = [trace]
+        layout = go.Layout(
+            title = 'Total_Hospitalisation per country',
+            geo = dict(
+            showframe = True,
+            showlakes = False,
+            showcoastlines = True,
+            projection = dict(
+                type = 'natural earth'
+            )
+        )
+    )
+        fig = dict( data=data, layout=layout )
+        
+        iplot(fig,"Total__ICU_Hospitalisation per country.png")
         
         # Countries with maximum ICU hospitalisation Average rate
         query = """ select country ,avg(Daily_ICU_occupancy) as Total__ICU_Hospitalisation
@@ -198,11 +236,48 @@ class deeksha_code():
         self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country', 'Total__ICU_Hospitalisation'])
         
         
-        h=sns.barplot(x='country',y='Total__ICU_Hospitalisation',data=self._vdf[0:5])
-        h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:5]))
-        plt.title("Top 5 countries with Highest ICU Hospitalisation")
-        h.legend()
-        plt.show()
+        # h=sns.barplot(x='country',y='Total__ICU_Hospitalisation',data=self._vdf[0:5])
+        # h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:5]))
+        # plt.title("Top 5 countries with Highest ICU Hospitalisation")
+        # h.legend()
+        # plt.show()
+        # plt.savefig('Top 5 countries with Highest ICU Hospitalisation.png')
+        
+        
+        trace = go.Choropleth(
+            locations = self._vdf['country'],
+            locationmode='country names',
+            z = self._vdf['Total__ICU_Hospitalisation'],
+            text = self._vdf['country'],
+            autocolorscale =False,
+            reversescale = True,
+            colorscale = 'viridis',
+            marker = dict(
+                line = dict(
+                    color = 'rgb(0,0,0)',
+                    width = 0.5)
+            ),
+            colorbar = dict(
+                title = 'Total__ICU_Hospitalisation',
+                tickprefix = '')
+        )
+
+        data = [trace]
+        layout = go.Layout(
+            title = 'Total__ICU_Hospitalisation per country',
+            geo = dict(
+            showframe = True,
+            showlakes = False,
+            showcoastlines = True,
+            projection = dict(
+                type = 'equirectangular'
+            )
+        )
+    )
+        fig = dict( data=data, layout=layout )
+        
+        iplot(fig,"Total__ICU_Hospitalisation per country.png")
+
         
         # Top Countries with average corona cases per day
         query = """ select country,avg(new_cases) as average_New_Cases_per_day
@@ -220,7 +295,8 @@ class deeksha_code():
         plt.title("Country Wise average New cases per day")
         h.legend()
         plt.show() 
-        
+        plt.savefig('Country Wise average New cases per day.png')
+
         # Top Countries with average testing rate per day
         query = """ select country ,avg(testing_rate) as Avg_Testing_Rate
                     from hospitalData 
@@ -237,6 +313,8 @@ class deeksha_code():
         plt.title("Top 10 countries with highest Testing rate")
         h.legend()
         plt.show()
+        plt.savefig('Top 10 countries with highest Testing rate.png')
+
         
          # Top Countries with average Corona positive rate per day
         query = """ select country ,avg(positivity_rate) as Avg_Corona_Positive_Rate
@@ -254,4 +332,6 @@ class deeksha_code():
         plt.title("Top 10 countries with highest Corona Positive rate")
         h.legend()
         plt.show()
+        plt.savefig('Top 10 countries with highest Corona Positive rate.png')
+
               

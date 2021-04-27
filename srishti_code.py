@@ -89,6 +89,7 @@ class srishti_code():
         self._mongo_df = pd.DataFrame().from_dict(self._df_list)
         ## DATA PRE PROCESSING AND CLEANING PART ##
         print("Date Cleaning Started....")
+        print(self._mongo_df.columns)
         self._mongo_df = self._mongo_df[self._mongo_df.date.isnull() == False]
         # self._mongo_df["date"] = self._mongo_df["date"].apply(lambda x: self.date_cleaner(x))
         print("Date Cleaning done!")
@@ -159,6 +160,7 @@ class srishti_code():
         plt.subplots(figsize=(8, 8))
         sns.heatmap(self._mongo_df.corr() , annot=True, square=True )
         plt.show()
+        plt.savefig('correlation.png')
         
         ## VISUALISATION PART ##
 
@@ -178,6 +180,7 @@ class srishti_code():
         plt.title("Top 5 countries with Highest Vaccination average rate")
         h.legend()
         plt.show()
+        plt.savefig('Top 5 countries with Highest Vaccination average rate.png')
         
     #   What country is vaccinated more people?   
         query = """ select country ,max(people_fully_vaccinated) as fully_vaccinated
@@ -194,6 +197,8 @@ class srishti_code():
         plt.title("Top 20 countries with full vaccination")
         h.legend()
         plt.show()
+        plt.savefig('Top 20 countries with full vaccination.png')
+
         
         
     # Analyzing which country has the largest amount of vaccinations
@@ -211,6 +216,7 @@ class srishti_code():
         plt.title("Top 15 countries with largest amount of vaccinations")
         h.legend()
         plt.show()
+        plt.savefig('Top 15 countries with largest amount of vaccinations.png')
         
     # Max people Vaccinated for top 50 countries 
         query = """ select country ,max(people_vaccinated) as people__vaccinated
@@ -227,6 +233,8 @@ class srishti_code():
         plt.title("Max people Vaccinated for top 50 countries")
         h.legend()
         plt.show()
+        plt.savefig('Max people Vaccinated for top 50 countries.png')
+        
     
     # People Vaccinated per hundred for top 50 countries
         query = """ select country ,max(people_vaccinated_per_hundred) as people_vaccinated__per_hundred
@@ -243,6 +251,8 @@ class srishti_code():
         plt.title("People Vaccinated per hundred for top 50 countries")
         h.legend()
         plt.show()
+        plt.savefig('People Vaccinated per hundred for top 50 countries.png')
+        
         
     # people_fully_vaccinated_per_hundred
         query = """ select country ,max(people_fully_vaccinated_per_hundred) as people_fully__vaccinated_per_hundred
@@ -259,63 +269,70 @@ class srishti_code():
         plt.title("People fully vaccinated per hundred")
         h.legend()
         plt.show()
+        plt.savefig('People fully vaccinated per hundred.png')
+        
         
     # Analysis on data for India
     # Select data entries for India 
-        query = """ select country, date, sum(total_vaccinations) as total_Vaccinations
-                    from vaccineData v
-                    where v.country = 'India'
-                    group by country, date
-                    order by total_Vaccinations;"""
+        # query = """ select country, date, sum(total_vaccinations) as total_Vaccinations
+        #             from vaccineData v
+        #             where v.country = 'India'
+        #             group by country, date
+        #             order by total_Vaccinations;"""
                     
-        self._q_data=self.get_data_mysql(self._con,query)
+        # self._q_data=self.get_data_mysql(self._con,query)
         
-        self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'total_Vaccinations'])
+        # self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'total_Vaccinations'])
         
-        h=sns.lineplot(x='date',y='total_Vaccinations',hue='country',data=self._vdf)
-        h.set_xticklabels(rotation=90,labels = list(self._vdf.date))
-        plt.title("Total vaccinations date-wise trend in India")
-        h.legend()
-        plt.show()
+        # h=sns.lineplot(x='date',y='total_Vaccinations',hue='country',data=self._vdf)
+        # h.set_xticklabels(rotation=90,labels = list(self._vdf.date))
+        # plt.title("Total vaccinations date-wise trend in India")
+        # h.legend()
+        # plt.show()
         
-        query = """ select country, date, sum(people_fully_vaccinated) as people_fully_vaccinated
-                    from vaccineData v
-                    where v.country = 'India'
-                    group by country, date
-                    order by people_fully_vaccinated;"""
+        # plt.savefig('Total vaccinations date-wise trend in India.png')
+        
+        # query = """ select country, date, sum(people_fully_vaccinated) as people_fully_vaccinated
+        #             from vaccineData v
+        #             where v.country = 'India'
+        #             group by country, date
+        #             order by people_fully_vaccinated;"""
                     
-        self._q_data=self.get_data_mysql(self._con,query)
+        # self._q_data=self.get_data_mysql(self._con,query)
         
-        self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'people_fully_vaccinated'])
+        # self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'people_fully_vaccinated'])
         
-        h=sns.lineplot(x='date',y='people_fully_vaccinated',hue='country',data=self._vdf)
-        h.set_xticklabels(rotation=90,labels = list(self._vdf.date))
-        plt.title("People fully vaccinated - date wise trend in India")
-        h.legend()
-        plt.show()
+        # h=sns.lineplot(x='date',y='people_fully_vaccinated',hue='country',data=self._vdf)
+        # h.set_xticklabels(rotation=90,labels = list(self._vdf.date))
+        # plt.title("People fully vaccinated - date wise trend in India")
+        # h.legend()
+        # plt.show()
+        # plt.savefig('People fully vaccinated - date wise trend in India.png')
         
-        query = """select country, date, sum(people_fully_vaccinated) as people_fully_vaccinated, sum(total_vaccinations) as total_vaccinations, sum(people_vaccinated) as people_vaccinated
-                    from vaccineData v
-                    where v.country = 'India'
-                    group by country, date
-                    order by people_fully_vaccinated,total_Vaccinations,people_vaccinated ; """
+        # query = """select country, date, sum(people_fully_vaccinated) as people_fully_vaccinated, sum(total_vaccinations) as total_vaccinations, sum(people_vaccinated) as people_vaccinated
+        #             from vaccineData v
+        #             where v.country = 'India'
+        #             group by country, date
+        #             order by people_fully_vaccinated,total_Vaccinations,people_vaccinated ; """
         
-        self._q_data=self.get_data_mysql(self._con,query)
+        # self._q_data=self.get_data_mysql(self._con,query)
         
-        self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'people_fully_vaccinated', 'total_vaccinations','people_vaccinated'])
+        # self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'people_fully_vaccinated', 'total_vaccinations','people_vaccinated'])
         
-        X = self._vdf["date"]
-        Y1 =self._vdf["people_fully_vaccinated"]
-        Y2 =self._vdf["total_vaccinations"]
-        Y3 =self._vdf["people_vaccinated"]
+        # X = self._vdf["date"]
+        # Y1 =self._vdf["people_fully_vaccinated"]
+        # Y2 =self._vdf["total_vaccinations"]
+        # Y3 =self._vdf["people_vaccinated"]
 
-        plt.figure(figsize=(8,5))
-        plt.plot(X,Y1,linewidth=4,label="people fully vaccinated")
-        plt.plot(X,Y2,linewidth=3,label="total vaccinations")
-        plt.plot(X,Y3,linewidth=3,label="people vaccinated")
-        plt.xticks(rotation=90)
-        plt.legend()
-        plt.show()   
+        # plt.figure(figsize=(8,5))
+        # plt.plot(X,Y1,linewidth=4,label="people fully vaccinated")
+        # plt.plot(X,Y2,linewidth=3,label="total vaccinations")
+        # plt.plot(X,Y3,linewidth=3,label="people vaccinated")
+        # plt.xticks(rotation=90)
+        # plt.legend()
+        # plt.show()  
+        # plt.savefig('People fully vaccinated,total vaccinations,people vaccinated - date wise trend .png')
+  
         
         # Total Vaccination % of Population by Country
         query = """ select country, sum(total_vaccinations) as total_vaccinations

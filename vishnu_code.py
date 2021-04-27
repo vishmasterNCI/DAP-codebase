@@ -34,9 +34,11 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.inspection import permutation_importance
 import numpy as np
-
-
-
+from plotly.offline import download_plotlyjs,init_notebook_mode,plot,iplot
+import plotly.graph_objs as go
+from statsmodels.tsa.arima.model import ARIMA
+import statsmodels.api as sm
+from math import sqrt
 
 class vishnu_code():
     def __init__(self,client,db):
@@ -74,6 +76,14 @@ class vishnu_code():
         self._q_data=None
         self._vdf=pd.DataFrame()
         self._final_df=pd.DataFrame()
+        self._q_data1=pd.DataFrame()
+        self._q_data2=pd.DataFrame()
+        self._q_data3=pd.DataFrame()
+        self._deaths_df=pd.DataFrame()
+        self._active_df=pd.DataFrame()
+        self._daily_df=pd.DataFrame()
+        self._vaccinated_df=pd.DataFrame()
+
 
     
     
@@ -93,6 +103,7 @@ class vishnu_code():
     
     def insert_into_table(self,con,query,data):
         cur = con.cursor()
+        print(query.format(*data))
         cur.execute(query.format(*data))
         cur.commit()
         
@@ -118,6 +129,7 @@ class vishnu_code():
             country=country.lower()
             country=country.replace(' ','-')
             print(country)
+            
             try:
                 self._driver.get(r'https://www.worldometers.info/coronavirus/country/{}/'.format(country))
             
@@ -144,14 +156,16 @@ class vishnu_code():
                     except:
                         self._death_rate=[]
                         self._recovery_rate=[]
+                
                 l1=re.sub(r'"[^"]*"', lambda m: m.group(0).replace(',', ''), l1)               
+                
                 l1=list(ast.literal_eval(l1))
+                
                 self._cases=self._cases.replace('null','None')
                 try:
                     self._deaths=self._deaths.replace('null','None')
                 except:
                     self._deaths=self._deaths
-                    
                 self._active_cases=self._active_cases.replace('null','None')
                 
                 self._cases=list(ast.literal_eval(self._cases))
@@ -176,9 +190,12 @@ class vishnu_code():
                     self._recovery_rate=list(ast.literal_eval(self._recovery_rate))
                 except:
                     self._recovery_rate=self._recovery_rate
+                
               
                 d={"country":[],"date":[],"active_cases":[],"daily_cases":[],"deaths":[],"death_rate":[],"recovery_rate":[]}
+               
                 d["date"]=l1
+                
                 d["daily_cases"]=self._cases
                 d["active_cases"]=self._active_cases
                 if self._deaths==0:
@@ -188,15 +205,15 @@ class vishnu_code():
                 d["death_rate"]=self._deaths
                 d["recovery_rate"]=self._recovery_rate
                 d["country"]=[country for i in range(0,len(d["date"]))]
+                #d["date"] = d["date"].apply(lambda x:datetime.strptime(x, '%m/%d/%y'))
+                
                 df=pd.DataFrame(dict([ (k,pd.Series(v)) for k,v in d.items()]))
                 self._df_list.append(df)
-            except Exception as e:
-                print(e)
-                print("No data for {}".format(country))
-                break
-            
-            
                 
+            except:
+                print("No data for {}".format(country))
+                pass
+             
         return pd.concat(self._df_list)
     
     def recovery_rate_clean(self,x):
@@ -213,7 +230,9 @@ class vishnu_code():
         self._client = MongoClient(host="localhost", port=27017)
         self._db="dap_project"
         self._mydb = self._client[self._db]
-        df=self.scrape_data()    
+        df=self.scrape_data()
+        print(df)
+        print(df.country.unique())
         df=df.to_dict(orient='records')
         print("*"*20)
         self.insert_into_mongo(df)
@@ -249,13 +268,13 @@ class vishnu_code():
         self._con = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER='+self._sqlserver+';DATABASE='+self._sqldb+';UID='+self._username+';PWD='+self._password) 
         
         drop_table = ("""   
-                                        drop table if exists covidData;
+                                        drop table if exists covidDatas;
                                         
                                     
                                     """)
         self.crud(self._con,drop_table)
         sql_create_covid_table = ("""   
-                                        CREATE TABLE covidData (
+                                        CREATE TABLE covidDatas (
                                         active_cases DECIMAL (38,4) NOT NULL ,
                                         death_rate DECIMAL (38,4) NOT NULL ,
                                         deaths DECIMAL (38,4) NOT NULL ,
@@ -269,7 +288,7 @@ class vishnu_code():
         
         self.crud(self._con,sql_create_covid_table)
         
-        sql_insert_values = ''' INSERT INTO covidData(active_cases,death_rate,deaths,recovery_rate,daily_cases,date,country)
+        sql_insert_values = ''' INSERT INTO covidDatas(active_cases,death_rate,deaths,recovery_rate,daily_cases,date,country)
                               VALUES({},{},{},{},{},'{}','{}'); '''
         
         
@@ -282,7 +301,7 @@ class vishnu_code():
         
         
         query = """ select country ,sum(deaths) as total_deaths
-                    from covidData 
+                    from covidDatas 
                     group by country
                     order by total_deaths desc ; """
         
@@ -296,13 +315,15 @@ class vishnu_code():
         plt.title("Top 5 countries with most deaths")
         h.legend()
         plt.show()
+        plt.savefig('Top 5 countries with most deaths.png')
+
         
         
         
         
         
         query = """ select country ,avg(death_rate) as average_death_rate
-                    from covidData 
+                    from covidDatas 
                     group by country
                     order by average_death_rate  ; """
         
@@ -316,11 +337,11 @@ class vishnu_code():
         plt.title("Top 5 countries with least average death rate")
         h.legend()
         plt.show()
-        
+        plt.savefig('Top 5 countries with least average death rate.png')
         
         
         query = """ select country ,sum(daily_cases) as total_cases
-                    from covidData 
+                    from covidDatas 
                     group by country
                     order by total_cases desc  ; """
         
@@ -335,11 +356,47 @@ class vishnu_code():
         h.legend()
         plt.show()
         
+        print(self._vdf['country'])
+        trace = go.Choropleth(
+            locations = self._vdf['country'],
+            locationmode='country names',
+            z = self._vdf['total_cases'],
+            text = self._vdf['country'],
+            autocolorscale =False,
+            reversescale = True,
+            colorscale = 'viridis',
+            marker = dict(
+                line = dict(
+                    color = 'rgb(0,0,0)',
+                    width = 0.5)
+            ),
+            colorbar = dict(
+                title = 'Total daily cases',
+                tickprefix = '')
+        )
+
+        data = [trace]
+        layout = go.Layout(
+            title = 'Total daily cases per country',
+            geo = dict(
+            showframe = True,
+            showlakes = False,
+            showcoastlines = True,
+            projection = dict(
+                type = 'natural earth'
+            )
+        )
+    )
+        fig = dict( data=data, layout=layout )
+        iplot(fig,"Total daily cases per country.png")
+        
+
+        
         
         
         
         query = """ select country ,sum(active_cases) as active_cases
-                    from covidData 
+                    from covidDatas 
                     group by country
                     order by active_cases desc; """
         
@@ -347,18 +404,53 @@ class vishnu_code():
         
         self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country', 'active_cases'])
         
+        trace = go.Choropleth(
+            locations = self._vdf['country'],
+            locationmode='country names',
+            z = self._vdf['active_cases'],
+            text = self._vdf['country'],
+            autocolorscale =False,
+            reversescale = True,
+            colorscale = 'viridis',
+            marker = dict(
+                line = dict(
+                    color = 'rgb(0,0,0)',
+                    width = 0.5)
+            ),
+            colorbar = dict(
+                title = 'Total active cases',
+                tickprefix = '')
+        )
+
+        data = [trace]
+        layout = go.Layout(
+            title = 'Total active cases per country',
+            geo = dict(
+            showframe = True,
+            showlakes = False,
+            showcoastlines = True,
+            projection = dict(
+                type = 'natural earth'
+            )
+        )
+    )
+        fig = dict( data=data, layout=layout )
+        iplot(fig,"Total active cases per country.png")
+        
+        
         
         h=sns.barplot(x='country',y='active_cases',data=self._vdf[0:5])# only 1 column is passed ie x or y
         h.set_xticklabels(rotation=90,labels = list(self._vdf.country[0:5]))
         plt.title("Top 5 countries with most Active Cases")
         h.legend()
         plt.show()
+        plt.savefig('op 5 countries with most Active Cases.png')
         
         
         
         
         query = """ select country ,date ,max(daily_cases) as max_daily_cases
-                    from covidData
+                    from covidDatas
                     group by date,country
                     order by max_daily_cases desc ; """
         
@@ -367,16 +459,19 @@ class vishnu_code():
         self._vdf = pd.DataFrame.from_records(self._q_data, columns =['country','date', 'max_daily_cases'])
         
         
+        
+        
         h=sns.barplot(x='date',y='max_daily_cases',hue='country',data=self._vdf[0:5])# only 1 column is passed ie x or y           
         h.set_xticklabels(rotation=0,labels = list(self._vdf.date[0:5]))
         plt.title("Top 5 days maximum reported cases")
         h.legend()
         plt.show()
+        plt.savefig('Top 5 days maximum reported cases.png')
         
         
         
         query = """ select date,sum(daily_cases) as total_cases_per_day
-                    from covidData
+                    from covidDatas
                     group by date
                     order by total_cases_per_day;"""
         
@@ -391,9 +486,10 @@ class vishnu_code():
         plt.title("Worldwide total cases")
         h.legend()
         plt.show()
+        plt.savefig('Worldwide total cases.png')
         
         query = """ select date,sum(deaths) as total_deaths_per_day
-                    from covidData
+                    from covidDatas
                     group by date
                     order by total_deaths_per_day;"""
         
@@ -402,37 +498,51 @@ class vishnu_code():
         self._vdf = pd.DataFrame.from_records(self._q_data, columns =['date', 'total_deaths_per_day'])
         
         
+        
+        
+        
         h=sns.lineplot(x='date',y=self._vdf.total_deaths_per_day.astype('float'),data=self._vdf)# only 1 column is passed ie x or y
         h.set_xticklabels(rotation=90,labels = self._vdf.date.values)
         h.xaxis.set_major_formatter(dates.DateFormatter("%d-%b-%Y"))
         plt.title("Worldwide total deaths")
         h.legend()
         plt.show()
-        
+        plt.savefig('Worldwide total deaths.png')
         
         
 
     def main_three(self):
         self._con = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER='+self._sqlserver+';DATABASE='+self._sqldb+';UID='+self._username+';PWD='+self._password) 
-        query = """ select * from covidData c,vaccineData v,hospitalData h
-                    where c.date=v.date
-                    and v.date=h.date
-                    and c.country=v.country
-                    and v.country=h.country; """
+        query1 = """ select * from covidDatas c; """
+                    
+        query2 = """ select * from vaccineData v ; """
+                    
+        query3 = """ select * from hospitalData h; """
         
-        self._q_data=self.get_data_mysql(self._con,query)
-        
-        self._final_df = pd.DataFrame.from_records(self._q_data, columns =["active_cases","death_rate","deaths","recovery_rate","daily_cases","date","country"
-        ,"total_vaccinations","people_vaccinated","people_fully_vaccinated","new_vaccinations","total_vaccinations_per_hundred"
-        ,"people_vaccinated_per_hundred","people_fully_vaccinated_per_hundred","population","date","country","Daily_ICU_occupancy",
-        "Daily_hospital_occupancy","country","date","level","new_cases","population","positivity_rate","region","region_name","testing_rate",'tests_done'])
+        self._q_data1=self.get_data_mysql(self._con,query1)
+        self._q_data2=self.get_data_mysql(self._con,query2)
+        self._q_data3=self.get_data_mysql(self._con,query3)
         
         
+        
+        
+        
+        self._final_df1 = pd.DataFrame.from_records(self._q_data1, columns =["active_cases","death_rate","deaths","recovery_rate","daily_cases","date","country"])
         
 
+        self._final_df2 = pd.DataFrame.from_records(self._q_data2, columns =["total_vaccinations","people_vaccinated","people_fully_vaccinated","new_vaccinations","total_vaccinations_per_hundred"
+        ,"people_vaccinated_per_hundred","people_fully_vaccinated_per_hundred","population","date","country"])
+
+        self._final_df3 = pd.DataFrame.from_records(self._q_data3, columns =["Daily_ICU_occupancy",
+        "Daily_hospital_occupancy","country","date","level","new_cases","population","positivity_rate","region","region_name","testing_rate",'tests_done'])
+        self._mldf=self._final_df2.merge(self._final_df1,on=["date","country"],how="right")
+        self._mldf.fillna(0,inplace=True)
         
-        self._mldf= self._final_df 
-        self._mldf.drop(["date"],axis=1,inplace=True) 
+        self._mldf=self._mldf.merge(self._final_df3,on=["date","country"],how="right")
+        self._mldf.fillna(0,inplace=True)
+        
+        #self._mldf= self._final_df 
+        self._mldf.drop(["population_x"],axis=1,inplace=True) 
         self._mldf.active_cases=self._mldf.active_cases.astype('float')
         self._mldf.death_rate=self._mldf.death_rate.astype('float')
         self._mldf.deaths=self._mldf.deaths.astype('float')
@@ -445,7 +555,7 @@ class vishnu_code():
         self._mldf.total_vaccinations_per_hundred=self._mldf.total_vaccinations_per_hundred.astype('float')
         self._mldf.people_vaccinated_per_hundred=self._mldf.people_vaccinated_per_hundred.astype('float')
         self._mldf.people_fully_vaccinated_per_hundred=self._mldf.people_fully_vaccinated_per_hundred.astype('float')
-        self._mldf.population=self._mldf.population.astype('float')
+        self._mldf.population_y=self._mldf.population_y.astype('float')
         self._mldf.Daily_ICU_occupancy=self._mldf.Daily_ICU_occupancy.astype('float')
         self._mldf.Daily_hospital_occupancy=self._mldf.Daily_hospital_occupancy.astype('float')
         self._mldf.positivity_rate=self._mldf.positivity_rate.astype('float')
@@ -454,82 +564,93 @@ class vishnu_code():
         self._mldf.new_cases=self._mldf.new_cases.astype('float')
         self._mldf=self._mldf.loc[:,~self._mldf.columns.duplicated()]
         print(self._mldf.info())
-        
-        #inter dataset visualization
-        #correlation
-        cor_df=self._mldf.select_dtypes(exclude=['object'])
-        sns.heatmap(cor_df.corr())
-        #strong negative correlation between testing rate and positivity rate,which means if the testing rate increases positivity rate tends to decrease
-        #strong positive correlation between recovery rate and daily icu and hospital admissions
-        #strong negative correlation between people vaccinated per hundred and deaths,which means with more vaccintions the death rate tends to decrease
-        
-        #feature selection
-        #remove highly correlated variables: total_vaccinations,people_vaccinated,people_fully_vaccinated,people_vaccinated_per_hundred,people_fully_vaccinated_per_hundred,death_rate
+        print(self._mldf.shape)
         
         
+        # self._mldf1=self._mldf[self._mldf["country"]=="austria"]
+        # self._mldf2=self._mldf[self._mldf["country"]=="belgium"]
+        self._mldf.drop_duplicates(inplace=True)
+        print(self._mldf.info())
+        print(self._mldf.shape)
+        print(self._mldf.country.unique())
         
-        X=self._mldf[self._mldf.columns.difference(['level','country','region','region_name','people_vaccinated','total_vaccinations,people_vaccinated','people_fully_vaccinated','people_vaccinated_per_hundred','total_vaccinations','total_vaccinations_per_hundred','deaths','death_rate','new_cases'])]
-        y=self._mldf[["deaths"]]
+        self._deaths_df=self._mldf.groupby(["date"])['deaths'].agg('sum')
+        self._active_df=self._mldf.groupby(["date"])['active_cases'].agg('sum')
+        self._daily_df=self._mldf.groupby(["date"])['daily_cases'].agg('sum')
+        self._vaccinated_df=self._mldf.groupby(["date"])['people_vaccinated'].agg('sum')
         
-        
-        
-        #le = preprocessing.LabelEncoder()
-        #X['country']=le.fit_transform(X['country'])
-        #X['level']=le.fit_transform(X['level'])
-        #X['region']=le.fit_transform(X['region'])
-        #X['region_name']=le.fit_transform(X['region_name'])
+        self._deaths_df = self._deaths_df.asfreq('W', method='ffill')
+        self._active_df = self._active_df.asfreq('W', method='ffill')
+        self._daily_df = self._daily_df.asfreq('W', method='ffill')
+        self._vaccinated_df = self._vaccinated_df.asfreq('W', method='ffill')
         
         
         
-        
-        
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=13)
-        params = {'n_estimators': 500,
-          'max_depth': 4,
-          'min_samples_split': 5,
-          'learning_rate': 0.01,
-          'loss': 'ls'}
-        
-        reg = ensemble.GradientBoostingRegressor()#**params
-        reg.fit(X_train, y_train)
-        
-        mse = mean_squared_error(y_test, reg.predict(X_test))
-        #rmse = root_mean_squared_error(y_test, reg.predict(X_test))
-        mae = mean_absolute_error(y_test, reg.predict(X_test))
-        r2 = r2_score(y_test, reg.predict(X_test))
-        adjr2 = r2_score(y_test, reg.predict(X_test),multioutput='variance_weighted')
-        
-        print("The mean squared error (MSE) on test set: {:.4f}".format(mse))
-        print("The mean absolute error (mae) on test set: {:.4f}".format(mae))
-        print("The r2 on test set: {:.4f}".format(r2))
-        print("The adjr2 on test set: {:.4f}".format(adjr2))
-        
-        feature_importance = reg.feature_importances_
-        sorted_idx = np.argsort(feature_importance)
-        pos = np.arange(sorted_idx.shape[0]) + .5
-        fig = plt.figure(figsize=(12, 6))
-        plt.subplot(1, 2, 1)
-        plt.barh(pos, feature_importance[sorted_idx], align='center')
-        plt.yticks(pos, np.array(X_test.columns)[sorted_idx])
-        plt.title('Feature Importance (MDI)')
+        #eaths_df.index=deaths_df.index.to_period('D')
+        def train_and_predict(deaths_df,title):
+            train_ind = int(len(deaths_df)*0.80)
+            train = deaths_df[:train_ind]
+            test = deaths_df[train_ind:]
+            predictions=pd.Series(index=test.index)
+            history = [x for x in train]
+            #model =sm.tsa.statespace.SARIMAX(history, order=(3,1,2))
+            #model_fit = model.fit()
+            for t in range(len(test)):
+                model =ARIMA(history, order=(1,1,0),seasonal_order=(1, 1, 1, 12))# sm.tsa.statespace..SARIMAX(history, order=(3,1,2))#Arima_model=auto_arima(history, start_p=1, start_q=1, max_p=8, max_q=8, start_P=0, start_Q=0, max_P=8, max_Q=8, m=12, seasonal=True, trace=True, d=1, D=1, error_action='warn', suppress_warnings=True, random_state = 20, n_fits=30)
+                model_fit = model.fit()
+                predictions[t]=model_fit.forecast()
+            
+                yhat = predictions[t]
+                #predictions.append(yhat)
+                obs = test[t]
+                history.append(obs)
+                print('predicted=%f, expected=%f' % (yhat, obs))
+            #arma_df=model_fit.predict()
+            #print(model_fit.summary())
+            rmse = sqrt(mean_squared_error(test, predictions))
+            mse=mean_squared_error(test, predictions)
+            
+            #evaluate forecasts
+            print('Test RMSE: %.3f' % rmse)
+            print("The mean squared error (MSE) on test set: {:.4f}".format(mse))
+            
+            
+            model =ARIMA(deaths_df, order=(3,1,2),seasonal_order=(1, 1, 1, 12))# sm.tsa.statespace..SARIMAX(history, order=(3,1,2))#Arima_model=auto_arima(history, start_p=1, start_q=1, max_p=8, max_q=8, start_P=0, start_Q=0, max_P=8, max_Q=8, m=12, seasonal=True, trace=True, d=1, D=1, error_action='warn', suppress_warnings=True, random_state = 20, n_fits=30)
+            model_fit = model.fit()
+            print(model_fit.summary())
+            arma_df=model_fit.predict('2021-04-30')
+            print("*******forecasts for next week******")
+            print(arma_df)
+            train.plot(label='train')
+            test.plot(label='test')
+            #arma_df.plot(label="future_predictions")
+            predictions.plot(label='predictions')
+            #arma_df.plot("one month prediction")
+            plt.legend(loc="upper left")
+            plt.title("Prediction of {}".format(title))
+            plt.show()
+            
+            return predictions
+    
 
-        result = permutation_importance(reg, X_test, y_test, n_repeats=10,
-                                        random_state=42, n_jobs=2)
-        sorted_idx = result.importances_mean.argsort()
-        plt.subplot(1, 2, 2)
-        plt.boxplot(result.importances[sorted_idx].T,
-                    vert=False, labels=np.array(X_test.columns)[sorted_idx])
-        plt.title("Permutation Importance (test set)")
-        fig.tight_layout()
-        plt.show()
+        train_and_predict(self._deaths_df,"deaths")
+        train_and_predict(self._daily_df,"daily_cases")
+        train_and_predict(self._active_df,"active_cases")
+        train_and_predict(self._vaccinated_df,"people_vaccinated")
+        
+        df_ob=self._mldf.select_dtypes(exclude=['object'])
+        cor_df=df_ob.corr()
+        sns.heatmap(cor_df)
+        
+        
+        # plot forecasts against actual outcomes
+        
         
 
-   
+        
+
         
         
-        
-        
-        
-        
+    
         
         
